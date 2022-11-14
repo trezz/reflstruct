@@ -136,13 +136,13 @@ struct reflstruct : base_reflstruct
 
 private:
     template<typename Fn, std::size_t... Is>
-    void _each(const Fn& f, std::index_sequence<Is...>) const
+    constexpr void _each(const Fn& f, std::index_sequence<Is...>) const
     {
         (f(std::get<Is>(_members)), ...);
     }
 
     template<typename Fn, std::size_t... Is>
-    void _each(const Fn& f, std::index_sequence<Is...>)
+    constexpr void _each(const Fn& f, std::index_sequence<Is...>)
     {
         (f(std::get<Is>(_members)), ...);
     }

@@ -1,3 +1,2 @@
-* envconfig: Use std::error_code
 * envconfig: test process
 * write a clang plugin to parse annotations and generate a reflstruct for all structs with the reflect annotation.

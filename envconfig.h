@@ -2,28 +2,41 @@
 
 #include "reflstruct.h"
 
-#include <_ctype.h>
 #include <cstdlib>
-#include <optional>
+#include <exception>
+#include <functional>
 #include <string>
 #include <type_traits>
 
 namespace trezz::envconfig {
 
+struct exception : public std::exception
+{
+    explicit exception(std::string message)
+      : _message{ std::move(message) }
+    {
+    }
+
+    const char* what() const noexcept override { return _message.data(); }
+
+private:
+    std::string _message{};
+};
+
 namespace detail {
 
 template<typename T>
-std::optional<std::string> process(std::string_view value, T& dest)
+constexpr void process(std::string_view value, T& dest)
 {
     using D = std::decay_t<decltype(dest)>;
 
     if constexpr (std::is_same_v<D, std::string>) {
         dest = std::string(value);
+    } else if constexpr (std::is_same_v<D, std::string_view>) {
+        dest = value;
     } else {
         static_assert(!std::is_same_v<D, D>, "unsupported value type");
     }
-
-    return std::nullopt;
 }
 
 template<trezz::detail::string_literal Annotation, size_t N>
@@ -42,30 +55,11 @@ constexpr size_t is_invalid_annotation()
     }
 }
 
-} // namespace detail
-
-// Return the index of the first element in the annotation configuration of envconfig that is
-// invalid, or 0 if the configuration is valid.
-template<trezz::detail::string_literal Annotation>
-constexpr size_t is_invalid_annotation()
+template<typename T, typename Fn>
+requires std::is_base_of_v<base_reflstruct, T> && std::is_invocable_r_v<char*, Fn, const char*>
+void process(T& dest, const Fn& env_getter)
 {
-    constexpr auto n = annotation::nb_configuration_elements<Annotation, "envconfig">();
-    if constexpr (n == 0) {
-        return 0;
-    } else {
-        return detail::is_invalid_annotation<Annotation, n>();
-    }
-}
-
-template<typename T>
-requires std::is_base_of_v<base_reflstruct, T> std::optional<std::string> process(T& dest)
-{
-    std::optional<std::string> err{ std::nullopt };
     dest.each([&](auto& member) {
-        if (err.has_value()) {
-            return;
-        }
-
         using M = std::decay_t<decltype(member)>;
 
         constexpr auto invalid_element_pos = is_invalid_annotation<M::annotation, "envconfig">();
@@ -82,19 +76,42 @@ requires std::is_base_of_v<base_reflstruct, T> std::optional<std::string> proces
             upper_name[i] = toupper(name[i]);
         }
 
-        const char* value = std::getenv(upper_name.data());
+        const char* value = env_getter(upper_name.data());
         if (value == nullptr) {
             if constexpr (annotation::has<M::annotation, "envconfig", "required">()) {
-                err = std::string("required '") + std::string(upper_name.data()) + "' not found";
+                throw envconfig::exception("required '" + std::string(upper_name.data()) +
+                                           "' not found");
             } else {
                 return;
             }
         }
 
-        err = detail::process(value, member.value);
+        detail::process(value, member.value);
     });
+}
 
-    return err;
+} // namespace detail
+
+// Return the index of the first element in the annotation configuration of envconfig that is
+// invalid, or 0 if the configuration is valid.
+template<trezz::detail::string_literal Annotation>
+constexpr size_t is_invalid_annotation()
+{
+    constexpr auto n = annotation::nb_configuration_elements<Annotation, "envconfig">();
+    if constexpr (n == 0) {
+        return 0;
+    } else {
+        return detail::is_invalid_annotation<Annotation, n>();
+    }
+}
+
+// Fill the given reflstruct with the values found in the environment.
+// An exception of type trezz::envconfig::exception is thrown on error.
+template<typename T>
+requires std::is_base_of_v<base_reflstruct, T>
+void process(T& dest)
+{
+    detail::process(dest, std::getenv);
 }
 
 } // namespace trezz::envconfig

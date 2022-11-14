@@ -1,6 +1,7 @@
 #pragma once
 
 #include "envconfig.h"
+#include "reflstruct.h"
 
 namespace trezz::envconfig::test {
 
