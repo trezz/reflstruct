@@ -34,7 +34,7 @@ constexpr size_t is_invalid_annotation()
     } else {
         constexpr auto element = annotation::get<Annotation, "envconfig", N>();
         if constexpr (element == "ignore" || element == "required" ||
-                      element.starts_with("default=") || element.starts_with("name=")) {
+                      element.starts_with("name=")) {
             return is_invalid_annotation<Annotation, N - 1>();
         } else {
             return N;
@@ -86,11 +86,9 @@ requires std::is_base_of_v<base_reflstruct, T> std::optional<std::string> proces
         if (value == nullptr) {
             if constexpr (annotation::has<M::annotation, "envconfig", "required">()) {
                 err = std::string("required '") + std::string(upper_name.data()) + "' not found";
-            } else if constexpr (annotation::has<M::annotation, "envconfig", "default">()) {
-                err = detail::process(annotation::get<M::annotation, "envconfig", "default">(),
-                                      member.value);
+            } else {
+                return;
             }
-            return;
         }
 
         err = detail::process(value, member.value);
