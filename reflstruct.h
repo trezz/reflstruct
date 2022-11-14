@@ -235,14 +235,19 @@ inline constexpr std::string_view configuration_elements()
     return {};
 }
 
+} // namespace detail
+
+// Return the number of elements of the given configuration in the given annotation.
 template<trezz::detail::string_literal Annotation, trezz::detail::string_literal ConfigurationName>
 inline constexpr size_t nb_configuration_elements()
 {
-    constexpr auto elements = configuration_elements<Annotation, ConfigurationName>();
-    return std::count(elements.begin(), elements.end(), ',') + 1;
+    constexpr auto elements = detail::configuration_elements<Annotation, ConfigurationName>();
+    if constexpr (elements.empty()) {
+        return 0;
+    } else {
+        return std::count(elements.begin(), elements.end(), ',') + 1;
+    }
 }
-
-} // namespace detail
 
 // Return the element of the given configuration at the given position, or the given default value
 // if the element is not found.
@@ -300,7 +305,7 @@ template<trezz::detail::string_literal Annotation,
 inline constexpr std::string_view get()
 {
     constexpr std::string_view element_name{ ElementName.data };
-    constexpr size_t max = detail::nb_configuration_elements<Annotation, ConfigurationName>();
+    constexpr size_t max = nb_configuration_elements<Annotation, ConfigurationName>();
 
     if constexpr (N > max) {
         return std::string_view{ DefaultValue.data };

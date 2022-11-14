@@ -26,7 +26,36 @@ std::optional<std::string> process(std::string_view value, T& dest)
     return std::nullopt;
 }
 
+template<trezz::detail::string_literal Annotation, size_t N>
+constexpr size_t is_invalid_annotation()
+{
+    if constexpr (N == 0) {
+        return 0;
+    } else {
+        constexpr auto element = annotation::get<Annotation, "envconfig", N>();
+        if constexpr (element == "ignore" || element == "required" ||
+                      element.starts_with("default=") || element.starts_with("name=")) {
+            return is_invalid_annotation<Annotation, N - 1>();
+        } else {
+            return N;
+        }
+    }
+}
+
 } // namespace detail
+
+// Return the index of the first element in the annotation configuration of envconfig that is
+// invalid, or 0 if the configuration is valid.
+template<trezz::detail::string_literal Annotation>
+constexpr size_t is_invalid_annotation()
+{
+    constexpr auto n = annotation::nb_configuration_elements<Annotation, "envconfig">();
+    if constexpr (n == 0) {
+        return 0;
+    } else {
+        return detail::is_invalid_annotation<Annotation, n>();
+    }
+}
 
 template<typename T>
 requires std::is_base_of_v<base_reflstruct, T> std::optional<std::string> process(T& dest)
@@ -38,6 +67,9 @@ requires std::is_base_of_v<base_reflstruct, T> std::optional<std::string> proces
         }
 
         using M = std::decay_t<decltype(member)>;
+
+        constexpr auto invalid_element_pos = is_invalid_annotation<M::annotation, "envconfig">();
+        static_assert(invalid_element_pos == 0, "TODO: show the index");
 
         if constexpr (annotation::has<M::annotation, "envconfig", "ignore">()) {
             return;
