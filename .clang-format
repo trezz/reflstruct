@@ -1,0 +1,12 @@
+Language: Cpp
+BasedOnStyle: Mozilla
+ColumnLimit: 100
+IndentWidth: 4
+AccessModifierOffset: -4
+ContinuationIndentWidth: 4
+SortIncludes: true
+AlwaysBreakAfterReturnType: None
+AlwaysBreakAfterDefinitionReturnType: false
+FixNamespaceComments: true
+IncludeBlocks: Regroup
+AllowShortFunctionsOnASingleLine: Inline
