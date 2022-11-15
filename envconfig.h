@@ -32,8 +32,9 @@ constexpr void process(std::string_view value, T& dest)
 
     if constexpr (std::is_same_v<D, std::string>) {
         dest = std::string(value);
-    } else if constexpr (std::is_same_v<D, std::string_view>) {
-        dest = value;
+    } else if constexpr (std::is_integral_v<D>) {
+        const auto i = std::stoll(std::string(value));
+        dest = i;
     } else {
         static_assert(!std::is_same_v<D, D>, "unsupported value type");
     }
@@ -55,6 +56,23 @@ constexpr size_t is_invalid_annotation()
     }
 }
 
+} // namespace detail
+
+// Return the index of the first element in the annotation configuration of envconfig that is
+// invalid, or 0 if the configuration is valid.
+template<trezz::detail::string_literal Annotation>
+constexpr size_t is_invalid_annotation()
+{
+    constexpr auto n = annotation::nb_configuration_elements<Annotation, "envconfig">();
+    if constexpr (n == 0) {
+        return 0;
+    } else {
+        return detail::is_invalid_annotation<Annotation, n>();
+    }
+}
+
+namespace detail {
+
 template<typename T, typename Fn>
 requires std::is_base_of_v<base_reflstruct, T> && std::is_invocable_r_v<char*, Fn, const char*>
 void process(T& dest, const Fn& env_getter)
@@ -62,14 +80,16 @@ void process(T& dest, const Fn& env_getter)
     dest.each([&](auto& member) {
         using M = std::decay_t<decltype(member)>;
 
-        constexpr auto invalid_element_pos = is_invalid_annotation<M::annotation, "envconfig">();
+        constexpr auto invalid_element_pos =
+            ::trezz::envconfig::is_invalid_annotation<M::annotation>();
         static_assert(invalid_element_pos == 0, "TODO: show the index");
 
         if constexpr (annotation::has<M::annotation, "envconfig", "ignore">()) {
             return;
         }
 
-        constexpr auto name = annotation::get<M::annotation, "envconfig", "name", M::name>();
+        constexpr auto name =
+            annotation::get<M::annotation, "envconfig", "name", M::literal_name>();
 
         std::array<char, name.size() + 1> upper_name{};
         for (size_t i = 0; i < name.size(); ++i) {
@@ -91,19 +111,6 @@ void process(T& dest, const Fn& env_getter)
 }
 
 } // namespace detail
-
-// Return the index of the first element in the annotation configuration of envconfig that is
-// invalid, or 0 if the configuration is valid.
-template<trezz::detail::string_literal Annotation>
-constexpr size_t is_invalid_annotation()
-{
-    constexpr auto n = annotation::nb_configuration_elements<Annotation, "envconfig">();
-    if constexpr (n == 0) {
-        return 0;
-    } else {
-        return detail::is_invalid_annotation<Annotation, n>();
-    }
-}
 
 // Fill the given reflstruct with the values found in the environment.
 // An exception of type trezz::envconfig::exception is thrown on error.
