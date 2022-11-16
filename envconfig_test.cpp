@@ -2,8 +2,11 @@
 
 #include "doctest/doctest.h"
 #include "envconfig.h"
+#include "reflstruct.h"
 
+#include <functional>
 #include <map>
+#include <type_traits>
 
 using namespace trezz;
 
@@ -46,17 +49,19 @@ struct Person
     int birthday{ 0 };
 };
 
-auto reflect(Person& p)
-{
-    return reflstruct{
-        reflmember<int&, "age", "envconfig:ignore">{ p.age },
-        reflmember<std::string&, "name", "envconfig:name=MY_NAME,required">{ p.name },
-        reflmember<int&, "birthday">{ p.birthday },
-    };
-};
+TREZZ_REFLSTRUCT_BEGIN(Person)
+TREZZ_REFLMEMBER(age, "envconfig:ignore")
+TREZZ_REFLMEMBER(name, "envconfig:name=MY_NAME,required")
+TREZZ_REFLMEMBER(birthday, "")
+TREZZ_REFLSTRUCT_END
 
 TEST_CASE("envconfig::process in struct")
 {
+    const Person p2{};
+
+    const trezz::reflstruct r2 = make_reflstruct(p2);
+    std::ignore = r2;
+
     std::map<std::string, std::string> env{
         { "NAME", "Alice" },
         { "AGE", "51" },
@@ -72,7 +77,7 @@ TEST_CASE("envconfig::process in struct")
     };
 
     Person person{};
-    auto reflperson = reflect(person);
+    auto reflperson = make_reflstruct(person);
 
     CHECK_NOTHROW(envconfig::detail::process(reflperson, env_getter));
     CHECK(person.name == "Bob");
