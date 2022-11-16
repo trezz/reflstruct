@@ -10,6 +10,14 @@
 
 using namespace trezz;
 
+static_assert(envconfig::is_invalid_annotation<"">() == 0);
+static_assert(envconfig::is_invalid_annotation<"json:required">() == 0);
+static_assert(envconfig::is_invalid_annotation<"envconfig:required">() == 0);
+static_assert(envconfig::is_invalid_annotation<"envconfig:required,ignore">() == 0);
+static_assert(envconfig::is_invalid_annotation<"envconfig:default">() == 1);
+static_assert(envconfig::is_invalid_annotation<"envconfig:ignore,name=MYNAME">() == 0);
+static_assert(envconfig::is_invalid_annotation<"envconfig:required,unknown,ignore">() == 2);
+
 TEST_CASE("envconfig::process nominal")
 {
     std::map<std::string, std::string> env{
@@ -42,49 +50,39 @@ TEST_CASE("envconfig::process nominal")
                       "required 'MY_NAME' not found");
 }
 
-struct Person
-{
-    int age{ 42 };
-    std::string name{};
-    int birthday{ 0 };
+static std::map<std::string, std::string> env{
+    { "NAME", "Alice" },
+    { "AGE", "51" },
+    { "MY_NAME", "Bob" },
+    { "BIRTHDAY", "12" },
 };
 
-TREZZ_REFLSTRUCT_BEGIN(Person)
-TREZZ_REFLMEMBER(age, "envconfig:ignore")
-TREZZ_REFLMEMBER(name, "envconfig:name=MY_NAME,required")
-TREZZ_REFLMEMBER(birthday, "")
-TREZZ_REFLSTRUCT_END
+static char* env_getter(const char* name) {
+    if (!env.contains(std::string(name))) {
+        return nullptr;
+    }
+    return env[std::string(name)].data();
+};
 
 TEST_CASE("envconfig::process in struct")
 {
-    const Person p2{};
-
-    const trezz::reflstruct r2 = make_reflstruct(p2);
-    std::ignore = r2;
-
-    std::map<std::string, std::string> env{
-        { "NAME", "Alice" },
-        { "AGE", "51" },
-        { "MY_NAME", "Bob" },
-        { "BIRTHDAY", "12" },
+    test::Person person{
+        .age = 42,
+        .name = "Alice",
+        .birthday = 12,
     };
 
-    auto env_getter = [&](const char* name) -> char* {
-        if (!env.contains(std::string(name))) {
-            return nullptr;
-        }
-        return env[std::string(name)].data();
-    };
-
-    Person person{};
-    auto reflperson = make_reflstruct(person);
-
-    CHECK_NOTHROW(envconfig::detail::process(reflperson, env_getter));
+    CHECK_NOTHROW(envconfig::detail::process(person, env_getter));
     CHECK(person.name == "Bob");
     CHECK(person.age == 42);
     CHECK(person.birthday == 12);
 
     env.erase("MY_NAME");
-    CHECK_THROWS_WITH(envconfig::detail::process(reflperson, env_getter),
+    CHECK_THROWS_WITH(envconfig::detail::process(person, env_getter),
                       "required 'MY_NAME' not found");
+
+    // Ensure const reflection works.
+    const test::Person p2{};
+    const trezz::reflstruct r2 = make_reflstruct(p2);
+    std::ignore = r2;
 }

@@ -110,12 +110,19 @@ void process(T& dest, const Fn& env_getter)
     });
 }
 
+template<typename T, typename Fn>
+requires(!std::is_base_of_v<base_reflstruct, T> &&
+         std::is_invocable_r_v<char*, Fn, const char*>) void process(T& dest, const Fn& env_getter)
+{
+    ::trezz::reflstruct rdest = ::trezz::make_reflstruct(dest);
+    process(rdest, env_getter);
+}
+
 } // namespace detail
 
-// Fill the given reflstruct with the values found in the environment.
+// Fill the given reflstruct or struct with the values found in the environment.
 // An exception of type trezz::envconfig::exception is thrown on error.
 template<typename T>
-requires std::is_base_of_v<base_reflstruct, T>
 void process(T& dest)
 {
     detail::process(dest, std::getenv);
