@@ -44,3 +44,22 @@ crs.each([](const auto& member) {
   // ...
 });
 ```
+
+Populate members with values taken from the environment using `trezz::envconfig`, leveraging the member annotations:
+
+```cpp
+#include "trezz/envconfig.h"
+
+// Environment with:
+//    MYSERVICE_HOST=example.com
+//    MYSERVICE_DB_URL=example.com/db
+
+service s{};
+
+trezz::envconfig::process(s);
+
+assert(s.port == 80); // MYSERVICE_PORT not found in the environment. Default value kept.
+assert(s.host == "example.com");
+assert(s.db_url == "example.com/db");
+
+```
