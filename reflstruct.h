@@ -353,42 +353,45 @@ inline constexpr bool has()
 
 } // namespace trezz
 
-// Generate the definition of a template function named `trezz::make_reflstruct` taking a const or
-// non-const reference on a structured type and returning a trezz::reflstruct of the given type.
+// Generate the definition of a template static member function named `make_trezz_reflstruct` in a
+// struct taking a const or non-const reference on an instance of the struct and returning a
+// trezz::reflstruct of it.
 //
 // Usage example:
 //
 //      struct person {
 //          int age{};
 //          std::string name{};
-//      };
 //
-//      TREZZ_REFLSTRUCT_BEGIN(person)
-//      TREZZ_REFLMEMBER(age, "envconfig:name=PERSON_AGE")
-//      TREZZ_REFLMEMBER(name, "envconfig:name=PERSON_NAME,required")
-//      TREZZ_REFLSTRUCT_END
+//          TREZZ_REFLSTRUCT_BEGIN(person)
+//          TREZZ_REFLMEMBER(age, "envconfig:name=PERSON_AGE")
+//          TREZZ_REFLMEMBER(name, "envconfig:name=PERSON_NAME,required")
+//          TREZZ_REFLSTRUCT_END
+//      };
 //
 //      /* Use the reflstruct like this: */
 //      person alice{ .age = 42, .name = "Alice" };
-//      std::reflstruct reflalice = trezz::make_reflstruct(alice);
+//      trezz::reflstruct reflalice = person::make_trezz_reflstruct(alice);
 //
 #define TREZZ_REFLSTRUCT_BEGIN(Type)                                                               \
-    namespace trezz {                                                                              \
     template<typename S>                                                                           \
     requires(std::is_class_v<std::decay_t<S>> &&                                                   \
-             (std::is_same_v<S, Type&> ||                                                          \
-              std::is_same_v<S, const Type&>)) auto make_reflstruct(S&& s)                         \
+             (std::is_same_v<S, Type&> || std::is_same_v<S, const Type&>)) static auto             \
+    make_trezz_reflstruct(S&& s)                                                                   \
     {                                                                                              \
+        auto get_mem_type = [](auto&& m) -> auto&                                                  \
+        {                                                                                          \
+            return m;                                                                              \
+        };                                                                                         \
         return reflstruct                                                                          \
         {
 
 // Generate a trezz::reflmember instanciation with the given name and the given annotation.
 // Use the empty string "" as annotation, if no annotation should be associated.
 #define TREZZ_REFLMEMBER(Name, Annotation)                                                         \
-    reflmember<decltype([](auto&& m) -> auto& { return m; }(s.Name)), #Name, Annotation>{ s.Name },
+    reflmember<decltype(get_mem_type(s.Name)), #Name, Annotation>{ s.Name },
 
 #define TREZZ_REFLSTRUCT_END                                                                       \
     }                                                                                              \
     ;                                                                                              \
-    }                                                                                              \
     }

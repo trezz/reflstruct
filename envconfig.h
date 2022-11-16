@@ -114,7 +114,7 @@ template<typename T, typename Fn>
 requires(!std::is_base_of_v<base_reflstruct, T> &&
          std::is_invocable_r_v<char*, Fn, const char*>) void process(T& dest, const Fn& env_getter)
 {
-    ::trezz::reflstruct rdest = ::trezz::make_reflstruct(dest);
+    ::trezz::reflstruct rdest = T::make_trezz_reflstruct(dest);
     process(rdest, env_getter);
 }
 

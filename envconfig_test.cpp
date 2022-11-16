@@ -1,5 +1,3 @@
-#include "envconfig_test.h"
-
 #include "doctest/doctest.h"
 #include "envconfig.h"
 #include "reflstruct.h"
@@ -57,16 +55,30 @@ static std::map<std::string, std::string> env{
     { "BIRTHDAY", "12" },
 };
 
-static char* env_getter(const char* name) {
+static char* env_getter(const char* name)
+{
     if (!env.contains(std::string(name))) {
         return nullptr;
     }
     return env[std::string(name)].data();
 };
 
+struct Person
+{
+    int age{};
+    std::string name{};
+    int birthday{};
+
+    TREZZ_REFLSTRUCT_BEGIN(Person)
+    TREZZ_REFLMEMBER(age, "envconfig:ignore")
+    TREZZ_REFLMEMBER(name, "envconfig:name=MY_NAME,required")
+    TREZZ_REFLMEMBER(birthday, "")
+    TREZZ_REFLSTRUCT_END
+};
+
 TEST_CASE("envconfig::process in struct")
 {
-    test::Person person{
+    Person person{
         .age = 42,
         .name = "Alice",
         .birthday = 12,
@@ -82,7 +94,7 @@ TEST_CASE("envconfig::process in struct")
                       "required 'MY_NAME' not found");
 
     // Ensure const reflection works.
-    const test::Person p2{};
-    const trezz::reflstruct r2 = make_reflstruct(p2);
+    const Person p2{};
+    const trezz::reflstruct r2 = Person::make_trezz_reflstruct(p2);
     std::ignore = r2;
 }
